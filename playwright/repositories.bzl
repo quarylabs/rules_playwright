@@ -4,8 +4,9 @@ These are needed for local dev, and users must install them as well.
 See https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies
 """
 
+load("//playwright/private:browser_targets.bzl", "compute_browser_targets", "render_workspace_files")
 load("//playwright/private:known_browsers.bzl", "KNOWN_BROWSER_INTEGRITY")
-load("//playwright/private:util.bzl", "get_all_cli_paths", "get_browsers_json_path", "get_cli_path")
+load("//playwright/private:util.bzl", "get_browsers_json_path")
 
 _PLAYWRIGHT_PACKAGE = "playwright"
 _PLAYWRIGHT_TEST_PACKAGE = "@playwright/test"
@@ -41,29 +42,16 @@ def _playwright_repo_impl(ctx):
         if not playwright_version:
             fail("playwright not found in dependencies or devDependencies")
 
-    # Watch all CLI binaries to ensure MODULE.bazel.lock remains consistent
-    # across platforms and detects changes when binaries are updated
-    for cli_path in get_all_cli_paths(ctx):
-        ctx.watch(cli_path)
-
     if ctx.attr.browsers_json:
         ctx.watch(ctx.attr.browsers_json)
-
-    result = ctx.execute(
-        [
-            get_cli_path(ctx),
-            "workspace",
-            "--browser-json-path",
-            get_browsers_json_path(ctx, playwright_version, ctx.attr.browsers_json),
-            "--browsers-workspace-name-prefix",
-            ctx.attr.browsers_workspace_name_prefix,
-            "--rules-playwright-cannonical-name",
-            ctx.attr.rules_playwright_cannonical_name,
-        ],
-    )
-
-    if result.return_code != 0:
-        fail(ctx.attr.name, "workspace command failed", result.stdout, result.stderr)
+    browsers_json_path = get_browsers_json_path(ctx, playwright_version, ctx.attr.browsers_json)
+    browsers_json = ctx.read(browsers_json_path)
+    download_paths_json = ctx.read(Label("//playwright/private/cli:src/download_paths.json"))
+    browser_targets = compute_browser_targets(ctx.attr.browsers_workspace_name_prefix, browsers_json, download_paths_json)
+    files = render_workspace_files(browser_targets, ctx.attr.rules_playwright_cannonical_name)
+    ctx.file("BUILD.bazel", files["BUILD.bazel"])
+    ctx.file("aliases/BUILD.bazel", files["aliases/BUILD.bazel"])
+    ctx.file("browsers/BUILD.bazel", files["browsers/BUILD.bazel"])
 
     if hasattr(ctx, "repo_metadata"):
         return ctx.repo_metadata(reproducible = True)
@@ -97,24 +85,13 @@ playwright_repository = repository_rule(
 )
 
 def _define_browsers_impl(rctx):
-    # Watch all CLI binaries to ensure MODULE.bazel.lock remains consistent
-    # across platforms and detects changes when binaries are updated
-    for cli_path in get_all_cli_paths(rctx):
-        rctx.watch(cli_path)
-
     rctx.watch(rctx.attr.browsers_json)
-    result = rctx.execute(
-        [
-            get_cli_path(rctx),
-            "http-files",
-            "--browser-json-path",
-            rctx.path(rctx.attr.browsers_json),
-            "--browsers-workspace-name-prefix",
-            rctx.attr.name,
-        ],
+    download_paths_json = rctx.read(Label("//playwright/private/cli:src/download_paths.json"))
+    browser_targets = compute_browser_targets(
+        rctx.attr.name,
+        rctx.read(rctx.path(rctx.attr.browsers_json)),
+        download_paths_json,
     )
-    if result.return_code != 0:
-        fail("http-files command failed", result.stdout, result.stderr)
 
     result_build = [
         """load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")""",
@@ -127,8 +104,8 @@ def _define_browsers_impl(rctx):
     for key, value in rctx.attr.browser_integrity.items():
         integrity_map[key] = value
 
-    for http_file_json in json.decode(result.stdout):
-        path = http_file_json["path"]
+    for target in browser_targets:
+        path = target["http_file_path"]
         integrity_attr = ""
         if path in integrity_map:
             integrity_attr = 'integrity = "{}",\n'.format(integrity_map[path])
@@ -145,7 +122,7 @@ def _define_browsers_impl(rctx):
             {urls}
         )
 """.format(
-            name = http_file_json["name"],
+            name = target["http_file_workspace_name"],
             path = path,
             integrity = integrity_attr,
             urls = urls_attr,

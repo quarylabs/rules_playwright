@@ -6,24 +6,59 @@ load(":unzip_browser.bzl", "UnzippedBrowserInfo")
 def _playwright_integrity_map_impl(ctx):
     output = ctx.actions.declare_file(ctx.attr.output if ctx.attr.output else ctx.attr.name + ".json")
 
-    browser_args = []
+    browser_pairs = []
     inputs = []
     for browser in ctx.attr.browsers:
         http_file_path = browser[UnzippedBrowserInfo].http_file_path
         browser_archive = browser[UnzippedBrowserInfo].browser_archive
 
         inputs.append(browser_archive)
-        browser_args.append("{}:{}".format(http_file_path, browser_archive.path))
+        browser_pairs.append("{}:{}".format(http_file_path, browser_archive.path))
 
-    silent_args = []
-    if ctx.attr.silent:
-        silent_args = ["--silent", "true"]
+    script = """
+set -euo pipefail
+out="$1"
+silent="$2"
+shift 2
 
-    ctx.actions.run(
+tmp="${out}.tmp"
+echo "{" > "$tmp"
+first=1
+
+for pair in "$@"; do
+  key="${pair%%:*}"
+  path="${pair#*:}"
+  if command -v sha256sum >/dev/null 2>&1; then
+    digest="$(sha256sum "$path" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    digest="$(shasum -a 256 "$path" | awk '{print $1}')"
+  else
+    digest="$(openssl dgst -sha256 "$path" | awk '{print $2}')"
+  fi
+
+  if [ "$first" -eq 0 ]; then
+    echo "," >> "$tmp"
+  fi
+  first=0
+  printf '  "%s": "sha256-%s"' "$key" "$digest" >> "$tmp"
+done
+
+echo >> "$tmp"
+echo "}" >> "$tmp"
+mv "$tmp" "$out"
+
+if [ "$silent" != "true" ]; then
+  printf 'integrity_map = '
+  cat "$out"
+  echo
+fi
+"""
+
+    ctx.actions.run_shell(
         inputs = inputs,
         outputs = [output],
-        executable = ctx.executable._cli,
-        arguments = ["integrity-map", "--output-path", output.path] + silent_args + browser_args,
+        command = script,
+        arguments = [output.path, "true" if ctx.attr.silent else "false"] + browser_pairs,
     )
 
     return [DefaultInfo(files = depset([output]))]
@@ -57,12 +92,6 @@ playwright_integrity_map = rule(
                 that users would typically copy and paste into their MODULE.bazel or WORKSPACE file.
                 Set to True to prevent this debug output from being printed.
             """,
-        ),
-        "_cli": attr.label(
-            default = "//tools/release:cli",
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
         ),
     },
 )

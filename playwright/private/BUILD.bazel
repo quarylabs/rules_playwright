@@ -43,6 +43,15 @@ bzl_library(
 )
 
 bzl_library(
+    name = "browser_targets",
+    srcs = ["browser_targets.bzl"],
+    visibility = [
+        "//docs:__subpackages__",
+        "//playwright:__subpackages__",
+    ],
+)
+
+bzl_library(
     name = "select_exec",
     srcs = ["select_exec.bzl"],
     visibility = [
