@@ -7,6 +7,7 @@ load("//playwright/private:unzip_browser.bzl", _unzip_browser = "unzip_browser")
 LINUX_DISTROS = [
     "debian11",
     "debian12",
+    "debian13",
     "ubuntu20.04",
     "ubuntu22.04",
     "ubuntu24.04",

@@ -24,6 +24,8 @@ def _base_platform(platform):
         return "debian12"
     if platform.startswith("debian13"):
         return "debian13"
+    if platform.startswith("debian13"):
+        return "debian13"
     if platform.startswith("mac10.13"):
         return "mac10.13"
     if platform.startswith("mac10.14"):
