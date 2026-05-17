@@ -11,8 +11,9 @@ effectively overriding the default named toolchain due to toolchain resolution p
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("//playwright/private:browser_targets.bzl", "compute_browser_targets")
 load("//playwright/private:known_browsers.bzl", "KNOWN_BROWSER_INTEGRITY")
-load("//playwright/private:util.bzl", "get_all_cli_paths", "get_browsers_json_path", "get_cli_path")
+load("//playwright/private:util.bzl", "get_browsers_json_path")
 load(":repositories.bzl", "playwright_repository")
 
 _DEFAULT_NAME = "playwright"
@@ -58,30 +59,13 @@ def _extension_impl(module_ctx):
                 One of playwright_version or browsers_json must be specified.
                 """)
 
-            cli = get_cli_path(module_ctx)
+            browsers_json_path = get_browsers_json_path(module_ctx, repo.playwright_version, repo.browsers_json)
+            download_paths_json = module_ctx.read(Label("//playwright/private/cli:src/download_paths.json"))
+            browser_targets = compute_browser_targets(repo.name, module_ctx.read(browsers_json_path), download_paths_json)
 
-            # Watch all CLI binaries to ensure MODULE.bazel.lock remains consistent
-            # across platforms and detects changes when binaries are updated
-            for cli_path in get_all_cli_paths(module_ctx):
-                module_ctx.watch(cli_path)
-
-            # Step 1: use module_ctx exec to get the list of browsers to iterate over and declare with http file
-            result = module_ctx.execute(
-                [
-                    cli,
-                    "http-files",
-                    "--browser-json-path",
-                    get_browsers_json_path(module_ctx, repo.playwright_version, repo.browsers_json),
-                    "--browsers-workspace-name-prefix",
-                    repo.name,
-                ],
-            )
-            if result.return_code != 0:
-                fail("http-files command failed", result.stdout, result.stderr)
-
-            for http_file_json in json.decode(result.stdout):
-                browser_name = http_file_json["name"]
-                path = http_file_json["path"]
+            for browser_target in browser_targets:
+                browser_name = browser_target["http_file_workspace_name"]
+                path = browser_target["http_file_path"]
                 integrity = repo.integrity_map.get(browser_name, None)
                 if not integrity:
                     integrity = repo.integrity_path_map.get(path, None)

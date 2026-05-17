@@ -12,11 +12,15 @@ UnzippedBrowserInfo = provider(
 
 def _unzip_browser_impl(ctx):
     output_dir = ctx.actions.declare_directory(ctx.attr.output_dir)
-    ctx.actions.run(
+    ctx.actions.run_shell(
         inputs = [ctx.file.browser],
         outputs = [output_dir],
-        executable = ctx.executable._cli,
-        arguments = ["unzip", "--output-path", output_dir.path, "--input-path", ctx.file.browser.path],
+        command = """
+set -euo pipefail
+mkdir -p "$1"
+unzip -q "$2" -d "$1"
+""",
+        arguments = [output_dir.path, ctx.file.browser.path],
     )
     return [
         DefaultInfo(files = depset([output_dir])),
@@ -36,11 +40,5 @@ unzip_browser = rule(
             mandatory = True,
         ),
         "output_dir": attr.string(mandatory = True),
-        "_cli": attr.label(
-            default = "//tools/release:cli",
-            allow_single_file = True,
-            executable = True,
-            cfg = "exec",
-        ),
     },
 )
