@@ -79,6 +79,10 @@ def compute_browser_targets(browsers_workspace_name_prefix, browsers_json, downl
         for platform, template in download_paths[browser_name].items():
             if platform == "<unknown>" or platform.startswith("win") or template == None:
                 continue
+            # Keep parity with prior Rust implementation: only generate targets
+            # for platforms this ruleset currently models.
+            if _base_platform(platform) == None:
+                continue
 
             current_revision = revision_overrides.get(platform, revision)
             has_revision_override = platform in revision_overrides
@@ -193,4 +197,3 @@ def render_workspace_files(browser_targets, rules_playwright_cannonical_name):
         "BUILD.bazel": "\n".join(root_lines).strip() + "\n",
         "aliases/BUILD.bazel": "\n".join(aliases_lines).strip() + "\n",
     }
-
