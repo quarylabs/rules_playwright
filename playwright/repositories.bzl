@@ -55,6 +55,7 @@ def _playwright_repo_impl(ctx):
 
     if hasattr(ctx, "repo_metadata"):
         return ctx.repo_metadata(reproducible = True)
+    return None
 
 playwright_repository = repository_rule(
     _playwright_repo_impl,
@@ -133,6 +134,7 @@ def _define_browsers_impl(rctx):
 
     if hasattr(rctx, "repo_metadata"):
         return rctx.repo_metadata(reproducible = True)
+    return None
 
 define_browsers = repository_rule(
     implementation = _define_browsers_impl,

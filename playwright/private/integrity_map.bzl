@@ -114,10 +114,12 @@ def playwright_browser_matrix(platforms, browser_names, playwright_repo_name = N
     Returns:
         A list of browser labels to be used as the browsers attribute of the integrity_map rule.
     """
+
     # TODO(mrmeku/rules_playwright#26): remove playright_repo_name
     if playwright_repo_name == None and playright_repo_name == None:
         fail("playwright_repo_name must be specified")
     if playwright_repo_name == None:
+        # buildifier: disable=print
         print("WARNING: playright_repo_name is deprecated, use playwright_repo_name instead")
         playwright_repo_name = playright_repo_name
     playright_repo_name = None
