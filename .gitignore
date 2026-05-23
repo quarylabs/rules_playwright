@@ -4,7 +4,4 @@ bazel-*
 .ijwb/
 node_modules
 out/
-# Added by cargo
-
-/target
 MODULE.bazel.lock

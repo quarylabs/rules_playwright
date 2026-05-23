@@ -6,14 +6,6 @@ Bazel rules for downloading and using Playwright browsers. These rules provide a
 
 `rules_playwright` provides Bazel targets for downloading Playwright browser binaries for use in your Bazel builds. It handles platform-specific downloads and configuration, making it easier to integrate browser-based testing into your Bazel workspace.
 
-## Documentation
-
-For detailed information on the rules and how to use them, see:
-
-- [Module extension](docs/extensions.md)
-- [Repository rule](docs/repositories.md)
-- [Generating an integrity map](docs/integrity_map.md)
-
 ## Setup
 
 Add the following to your `MODULE.bazel` file:
