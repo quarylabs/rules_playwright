@@ -1,1 +1,0 @@
-bazel run //tools/release:copy_release_artifacts --config=release
