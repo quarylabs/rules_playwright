@@ -63,7 +63,20 @@ def _expand_browsers(browsers):
     return expanded
 
 def compute_browser_targets(browsers_workspace_name_prefix, browsers_json, download_paths_json):
-    """Computes browser target metadata used by repositories and module extension."""
+    """Computes browser target metadata used by repositories and module extension.
+
+    Args:
+      browsers_workspace_name_prefix: Namespace prefix for the per-browser
+        http_file repositories that will be defined for each target.
+      browsers_json: Raw contents of a Playwright browsers.json file.
+      download_paths_json: Raw contents of the bundled download_paths.json that
+        maps (browser, platform) tuples to archive path templates.
+
+    Returns:
+      A sorted list of dicts, one per (browser, platform) target, each with
+      keys: http_file_workspace_name, http_file_path, label, output_dir,
+      browser, platform.
+    """
     download_paths = json.decode(download_paths_json)
     decoded = json.decode(browsers_json)
     browsers = _expand_browsers(decoded["browsers"])
@@ -81,6 +94,7 @@ def compute_browser_targets(browsers_workspace_name_prefix, browsers_json, downl
         for platform, template in download_paths[browser_name].items():
             if platform == "<unknown>" or platform.startswith("win") or template == None:
                 continue
+
             # Keep parity with prior Rust implementation: only generate targets
             # for platforms this ruleset currently models.
             if _base_platform(platform) == None:
@@ -109,7 +123,19 @@ def compute_browser_targets(browsers_workspace_name_prefix, browsers_json, downl
     return targets
 
 def render_workspace_files(browser_targets, rules_playwright_cannonical_name):
-    """Renders workspace BUILD file contents."""
+    """Renders workspace BUILD file contents for the generated playwright repo.
+
+    Args:
+      browser_targets: List of target dicts as produced by
+        compute_browser_targets.
+      rules_playwright_cannonical_name: The canonical repo name of
+        rules_playwright as visible from the generated repository, used to
+        construct fully-qualified labels in the emitted BUILD files.
+
+    Returns:
+      A dict from relative path to file contents, with keys
+      "BUILD.bazel", "aliases/BUILD.bazel", and "browsers/BUILD.bazel".
+    """
     browsers_lines = [
         "load(\"@{}//playwright:defs.bzl\", \"unzip_browser\")".format(rules_playwright_cannonical_name),
         "",
