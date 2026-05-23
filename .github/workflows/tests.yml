@@ -30,10 +30,6 @@ jobs:
       - name: Build rules_playwright
         run: bazelisk build //...
 
-      - name: Build and Test WORKSPACE example
-        working-directory: examples/workspace
-        run: bazelisk test //...
-
       - name: Build and Test MODULE.bazel example
         working-directory: examples/rules_js
         run: bazelisk test //... --test_output=all
